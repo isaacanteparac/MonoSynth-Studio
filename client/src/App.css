@@ -1,0 +1,241 @@
+.app {
+  text-align: center;
+  padding: 4rem 2rem;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+header h1 {
+  font-weight: 200;
+  letter-spacing: 0.5em;
+  text-transform: uppercase;
+  margin-bottom: 3rem;
+  font-size: 2rem;
+  opacity: 0.8;
+}
+
+.start-screen {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 60vh;
+}
+
+/* Top Bar */
+.top-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin-bottom: 3rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--primary-color);
+}
+
+.suggestions-label {
+  font-size: 0.7rem;
+  letter-spacing: 0.2em;
+  color: var(--accent-color);
+  text-transform: uppercase;
+}
+
+.suggestion-btn {
+  font-size: 0.75rem;
+  padding: 0.5rem 1.2rem;
+  border: 1px solid var(--primary-color);
+  background: transparent;
+  color: var(--text-color);
+  opacity: 0.7;
+}
+
+.suggestion-btn:hover {
+  opacity: 1;
+  border-color: var(--text-color);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* Global Controls */
+.global-controls {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 3rem;
+  margin-bottom: 3rem;
+  padding: 1.5rem;
+  border: 1px solid var(--primary-color);
+  border-radius: 0;
+  /* Sharp edges for minimalism */
+  background: transparent;
+}
+
+.bpm-control {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  font-family: 'Courier New', monospace;
+  /* Tech/Code feel */
+}
+
+.bpm-control input[type="range"] {
+  width: 150px;
+  height: 2px;
+  background: var(--primary-color);
+  appearance: none;
+  outline: none;
+}
+
+.bpm-control input[type="range"]::-webkit-slider-thumb {
+  appearance: none;
+  width: 10px;
+  height: 10px;
+  background: var(--text-color);
+  cursor: pointer;
+  border-radius: 0;
+  /* Square thumb */
+}
+
+/* Tracks */
+.tracks-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.track {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  background: rgba(255, 255, 255, 0.02);
+  padding: 1.5rem;
+  border: 1px solid transparent;
+  transition: border-color 0.3s;
+}
+
+.track:hover {
+  border-color: var(--primary-color);
+}
+
+.track-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 100px;
+  flex-shrink: 0;
+}
+
+.instrument-selector {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+}
+
+.inst-btn {
+  padding: 0.5rem 0;
+  font-size: 0.7rem;
+  border: 1px solid var(--primary-color);
+  background: transparent;
+  color: var(--accent-color);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.inst-btn:hover {
+  border-color: var(--text-color);
+  color: var(--text-color);
+}
+
+.inst-btn.active {
+  background: var(--text-color);
+  color: var(--bg-color);
+  border-color: var(--text-color);
+}
+
+.remove-btn {
+  padding: 0.5rem;
+  font-size: 0.7rem;
+  border: 1px solid #331111;
+  color: #884444;
+  background: transparent;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  margin-top: auto;
+}
+
+.remove-btn:hover {
+  background: #331111;
+  color: #ff6b6b;
+}
+
+.sequencer-container {
+  display: flex;
+  gap: 0.5rem;
+  flex: 1;
+  overflow-x: auto;
+}
+
+.note-labels {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding-top: 2px;
+  padding-bottom: 2px;
+}
+
+.note-label {
+  height: 24px;
+  /* Match cell height */
+  display: flex;
+  align-items: center;
+  font-size: 0.7rem;
+  color: var(--accent-color);
+  font-family: 'Courier New', monospace;
+}
+
+.sequencer {
+  flex: 1;
+}
+
+/* Grid */
+.grid {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  /* Increased gap */
+}
+
+.row {
+  display: flex;
+  gap: 4px;
+  /* Increased gap */
+}
+
+.cell {
+  width: 24px;
+  height: 24px;
+  background-color: rgba(255, 255, 255, 0.05);
+  border-radius: 0;
+  transition: all 0.1s;
+  box-sizing: border-box;
+  /* Prevent border from affecting size */
+  border: 1px solid transparent;
+  /* Reserve space for border */
+}
+
+.cell:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  transform: scale(1.05);
+}
+
+.cell.active {
+  background-color: var(--text-color);
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
+}
+
+.cell.current {
+  border-color: var(--accent-color);
+  /* Change color instead of adding width */
+}
