@@ -1,8 +1,17 @@
 demucs
-"numpy<2.0"
+numpy<2.0
 ffmpeg-python
 soundfile
+customtkinter
+pygame
 
-gpu uso
-pip uninstall torch torchvision torvalds torchaudio -y
-pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+
+
+##pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+##torch
+##torchvision
+##torchaudio --index-url https://download.pytorch.org/whl/cu121
+
+
+##gpu uso
+##pip uninstall torch torchvision torvalds torchaudio -y
