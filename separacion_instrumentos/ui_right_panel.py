@@ -1,80 +1,105 @@
 import os
-import subprocess
-import customtkinter as ctk
+from PySide6.QtWidgets import (
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
+    QFrame, QTreeWidget, QTreeWidgetItem
+)
+from PySide6.QtCore import Qt, Signal
 
-class RightPanel(ctk.CTkFrame):
-    def __init__(self, parent, config_manager, on_play_stems_callback):
-        super().__init__(parent, fg_color="transparent")
+class RightPanel(QWidget):
+    play_stems_requested = Signal(str, str, list) # (folder_path, song_name, stems_list)
+
+    def __init__(self, config_manager):
+        super().__init__()
         self.config = config_manager
-        self.on_play_stems_callback = on_play_stems_callback
         self.selected_folder = None
 
         self._create_ui()
         self.refresh_divided_songs()
 
     def _create_ui(self):
-        # Card Block: Divided Songs (monosync)
-        self.block_card = ctk.CTkFrame(self, fg_color="#1C1C1E", corner_radius=14, border_width=1, border_color="#2C2C2E")
-        self.block_card.pack(fill="both", expand=True)
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
 
-        # Header Frame
-        header = ctk.CTkFrame(self.block_card, fg_color="transparent")
-        header.pack(fill="x", padx=15, pady=(15, 8))
+        self.card = QFrame()
+        self.card.setObjectName("CardBlock")
+        card_layout = QVBoxLayout(self.card)
+        card_layout.setContentsMargins(12, 12, 12, 12)
+        card_layout.setSpacing(8)
 
-        lbl_title = ctk.CTkLabel(
-            header,
-            text="Canciones Divididas",
-            font=("SF Pro Display", 14, "bold"),
-            text_color="#F2F2F7"
-        )
-        lbl_title.pack(side="left")
+        # Header
+        header_layout = QHBoxLayout()
+        lbl_title = QLabel("Canciones Divididas")
+        lbl_title.setStyleSheet("font-size: 14px; font-weight: bold; color: #F2F2F7;")
+        header_layout.addWidget(lbl_title)
+        header_layout.addStretch()
 
-        btn_refresh = ctk.CTkButton(
-            header,
-            text="🔄 Actualizar",
-            width=80,
-            height=26,
-            font=("SF Pro Text", 10, "bold"),
-            fg_color="#2C2C2E",
-            hover_color="#3A3A3C",
-            corner_radius=6,
-            command=self.refresh_divided_songs
-        )
-        btn_refresh.pack(side="right")
+        btn_refresh = QPushButton("🔄 Actualizar")
+        btn_refresh.setCursor(Qt.PointingHandCursor)
+        btn_refresh.setStyleSheet("background-color: #2C2C2E; color: white; border-radius: 6px; font-size: 10px; font-weight: bold; padding: 4px 8px;")
+        btn_refresh.clicked.connect(self.refresh_divided_songs)
+        header_layout.addWidget(btn_refresh)
+        card_layout.addLayout(header_layout)
 
-        lbl_tree_root = ctk.CTkLabel(
-            self.block_card,
-            text="📁  monosync  (Carpeta Principal)",
-            font=("SF Pro Display", 12, "bold"),
-            text_color="#30D158"
-        )
-        lbl_tree_root.pack(anchor="w", padx=15, pady=(0, 6))
+        lbl_root = QLabel("📁  monosync  (Carpeta Principal)")
+        lbl_root.setStyleSheet("font-size: 12px; font-weight: bold; color: #30D158;")
+        card_layout.addWidget(lbl_root)
 
-        # Scrollable Tree / List of separated songs
-        self.scroll_tree = ctk.CTkScrollableFrame(self.block_card, fg_color="#121214", corner_radius=10)
-        self.scroll_tree.pack(fill="both", expand=True, padx=15, pady=(0, 10))
+        # Native Qt Tree Widget for divided songs hierarchy
+        self.tree_divided = QTreeWidget()
+        self.tree_divided.setHeaderHidden(True)
+        self.tree_divided.setStyleSheet("""
+            QTreeWidget {
+                background-color: #121214;
+                border: none;
+                border-radius: 8px;
+                color: #F2F2F7;
+                padding: 4px;
+            }
+            QTreeWidget::item {
+                padding: 4px;
+                border-radius: 4px;
+            }
+            QTreeWidget::item:selected {
+                background-color: #0A84FF;
+                color: white;
+            }
+            QTreeWidget::item:hover {
+                background-color: #2C2C2E;
+            }
+        """)
+        self.tree_divided.itemClicked.connect(self._on_item_clicked)
+        self.tree_divided.itemDoubleClicked.connect(self._cargar_mezclador)
+        card_layout.addWidget(self.tree_divided, stretch=1)
 
-        # Action Buttons for selected divided track
-        actions_frame = ctk.CTkFrame(self.block_card, fg_color="#252528", corner_radius=10)
-        actions_frame.pack(fill="x", padx=15, pady=(0, 15))
+        # Button to Load Stems
+        self.btn_load_stems = QPushButton("🎛 Cargar Mezclador Stems")
+        self.btn_load_stems.setEnabled(False)
+        self.btn_load_stems.setCursor(Qt.PointingHandCursor)
+        self.btn_load_stems.setStyleSheet("""
+            QPushButton {
+                background-color: #0A84FF;
+                color: white;
+                font-size: 11px;
+                font-weight: bold;
+                padding: 8px;
+                border-radius: 8px;
+            }
+            QPushButton:hover {
+                background-color: #0066CC;
+            }
+            QPushButton:disabled {
+                background-color: #2C2C2E;
+                color: #636366;
+            }
+        """)
+        self.btn_load_stems.clicked.connect(self._cargar_mezclador)
+        card_layout.addWidget(self.btn_load_stems)
 
-        self.btn_play_stems = ctk.CTkButton(
-            actions_frame,
-            text="🎛 Cargar Mezclador Stems",
-            state="disabled",
-            height=34,
-            font=("SF Pro Text", 11, "bold"),
-            fg_color="#0A84FF",
-            hover_color="#0066CC",
-            corner_radius=8,
-            command=self._cargar_mezclador
-        )
-        self.btn_play_stems.pack(fill="x", padx=10, pady=8)
+        main_layout.addWidget(self.card)
 
     def refresh_divided_songs(self):
-        for widget in self.scroll_tree.winfo_children():
-            widget.destroy()
-
+        self.tree_divided.clear()
         output_dir = self.config.get("output_dir", os.path.abspath("monosync"))
         if not os.path.exists(output_dir):
             os.makedirs(output_dir, exist_ok=True)
@@ -83,68 +108,40 @@ class RightPanel(ctk.CTkFrame):
         folders = [f for f in items if os.path.isdir(os.path.join(output_dir, f)) and not f.startswith("_")]
 
         if not folders:
-            lbl_empty = ctk.CTkLabel(
-                self.scroll_tree,
-                text="No hay canciones divididas todavia.\nUsa el panel de la izquierda para separar.",
-                font=("SF Pro Text", 11, "italic"),
-                text_color="#636366"
-            )
-            lbl_empty.pack(pady=30)
-            self.btn_play_stems.configure(state="disabled")
+            item = QTreeWidgetItem(self.tree_divided)
+            item.setText(0, "No hay canciones divididas todavía.")
+            item.setForeground(0, Qt.GlobalColor.gray)
+            self.btn_load_stems.setEnabled(False)
             return
 
         for folder_name in folders:
             folder_path = os.path.join(output_dir, folder_name)
-            is_sel = (folder_path == self.selected_folder)
+            folder_node = QTreeWidgetItem(self.tree_divided)
+            folder_node.setText(0, f"📂  {folder_name}")
+            folder_node.setData(0, Qt.UserRole, folder_path)
+            folder_node.setExpanded(True)
 
-            # Folder Card Item
-            card = ctk.CTkFrame(
-                self.scroll_tree,
-                fg_color="#0A84FF" if is_sel else "#1C1C1E",
-                corner_radius=8
-            )
-            card.pack(fill="x", pady=4, padx=2)
-
-            btn_folder = ctk.CTkButton(
-                card,
-                text=f"📂  {folder_name}",
-                anchor="w",
-                font=("SF Pro Text", 12, "bold"),
-                fg_color="transparent",
-                text_color="#FFFFFF" if is_sel else "#F2F2F7",
-                hover_color="#2C2C2E",
-                height=32,
-                command=lambda p=folder_path: self._select_folder(p)
-            )
-            btn_folder.pack(fill="x", padx=5, pady=(4, 0))
-
-            # List stems detected inside folder
             stems_found = [f for f in os.listdir(folder_path) if f.endswith(".wav")]
-            stems_text = " • ".join([s.replace(".wav", "").upper() for s in stems_found])
+            for s in stems_found:
+                stem_node = QTreeWidgetItem(folder_node)
+                stem_node.setText(0, f"└── 🎵 {s}")
+                stem_node.setFlags(stem_node.flags() & ~Qt.ItemIsSelectable)
 
-            lbl_stems = ctk.CTkLabel(
-                card,
-                text=f"└──  {stems_text}",
-                font=("SF Pro Text", 10),
-                text_color="#EBEBF5" if is_sel else "#8E8E93"
-            )
-            lbl_stems.pack(anchor="w", padx=24, pady=(0, 6))
-
-    def _select_folder(self, folder_path):
-        self.selected_folder = folder_path
-        self.refresh_divided_songs()
-        self.btn_play_stems.configure(state="normal")
+    def _on_item_clicked(self, item, column):
+        folder_path = item.data(0, Qt.UserRole)
+        if folder_path:
+            self.selected_folder = folder_path
+            self.btn_load_stems.setEnabled(True)
 
     def _cargar_mezclador(self):
         if self.selected_folder and os.path.exists(self.selected_folder):
             song_name = os.path.basename(self.selected_folder)
             stems_found = [f.replace(".wav", "").upper() for f in os.listdir(self.selected_folder) if f.endswith(".wav")]
-            
-            # Standard order: VOCALS, DRUMS, BASS, PIANO, GUITAR, OTHER
+
             preferred_order = ["VOCALS", "DRUMS", "BASS", "PIANO", "GUITAR", "OTHER"]
             ordered_stems = [s for s in preferred_order if s in stems_found]
             for s in stems_found:
                 if s not in ordered_stems:
                     ordered_stems.append(s)
 
-            self.on_play_stems_callback(self.selected_folder, song_name, ordered_stems)
+            self.play_stems_requested.emit(self.selected_folder, song_name, ordered_stems)

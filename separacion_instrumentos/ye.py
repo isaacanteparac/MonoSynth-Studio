@@ -1,25 +1,52 @@
 import os
 import sys
-import customtkinter as ctk
+from PySide6.QtWidgets import QApplication, QMainWindow, QWidget, QHBoxLayout
+from PySide6.QtCore import Qt, QTimer
+from PIL import Image
+
 from config import ConfigManager
 from audio_engine import AudioEngine
 from separator import DemucsSeparator
 from ui_left_panel import LeftPanel
 from ui_center_panel import CenterPanel
 from ui_right_panel import RightPanel
-from metadata_utils import get_song_metadata
+from metadata_utils import get_cover_image
 
-ctk.set_appearance_mode("dark")
-ctk.set_default_color_theme("blue")
+QSS_MACOS_DARK = """
+QMainWindow {
+    background-color: #0D0D0E;
+}
+QFrame#CardBlock {
+    background-color: #1C1C1E;
+    border-radius: 14px;
+    border: 1px solid #2C2C2E;
+}
+QLabel {
+    color: #F2F2F7;
+    font-family: 'SF Pro Display', 'Segoe UI', sans-serif;
+}
+QScrollBar:vertical {
+    border: none;
+    background: #121214;
+    width: 6px;
+    border-radius: 3px;
+}
+QScrollBar::handle:vertical {
+    background: #3A3A3C;
+    border-radius: 3px;
+}
+QScrollBar::handle:vertical:hover {
+    background: #545456;
+}
+"""
 
-class MonoSyncApp(ctk.CTk):
+class MonoSyncApp(QMainWindow):
     def __init__(self):
         super().__init__()
 
-        self.title("MonoSync Studio - Stem Player & AI Separator")
-        self.geometry("1180x820")
-        self.minsize(1000, 700)
-        self.configure(fg_color="#0D0D0E")
+        self.setWindowTitle("MonoSync Studio - Stem Player & AI Separator (Qt Edition)")
+        self.resize(1200, 840)
+        self.setMinimumSize(1020, 700)
 
         # Initialize Core Engines
         self.config_manager = ConfigManager()
@@ -34,51 +61,49 @@ class MonoSyncApp(ctk.CTk):
 
         self._build_layout()
 
-        # Start Mini Player position tick loop
-        self.center_panel.update_player_loop()
-
     def _build_layout(self):
-        self.grid_columnconfigure(0, weight=3) # Left Panel: 30%
-        self.grid_columnconfigure(1, weight=4) # Center Panel: 40%
-        self.grid_columnconfigure(2, weight=3) # Right Panel: 30%
-        self.grid_rowconfigure(0, weight=1)
+        central_widget = QWidget()
+        self.setCentralWidget(central_widget)
 
-        # Left Panel
+        main_layout = QHBoxLayout(central_widget)
+        main_layout.setContentsMargins(15, 15, 15, 15)
+        main_layout.setSpacing(12)
+
+        # Left Panel (30% width)
         self.left_panel = LeftPanel(
-            self,
             self.config_manager,
             self.audio_engine,
-            self.separator,
-            on_song_select_callback=self._on_song_select,
-            on_model_change_callback=self._on_model_change
+            self.separator
         )
-        self.left_panel.grid(row=0, column=0, sticky="nsew", padx=(15, 8), pady=15)
+        self.left_panel.song_selected.connect(self._on_song_select)
+        self.left_panel.model_changed.connect(self._on_model_change)
+        main_layout.addWidget(self.left_panel, stretch=3)
 
-        # Center Panel
+        # Center Panel (40% width)
         self.center_panel = CenterPanel(
-            self,
             self.config_manager,
             self.audio_engine
         )
-        self.center_panel.grid(row=0, column=1, sticky="nsew", padx=8, pady=15)
+        main_layout.addWidget(self.center_panel, stretch=4)
 
-        # Right Panel
-        self.right_panel = RightPanel(
-            self,
-            self.config_manager,
-            on_play_stems_callback=self._play_stems_song
-        )
-        self.right_panel.grid(row=0, column=2, sticky="nsew", padx=(8, 15), pady=15)
+        # Right Panel (30% width)
+        self.right_panel = RightPanel(self.config_manager)
+        self.right_panel.play_stems_requested.connect(self._play_stems_song)
+        main_layout.addWidget(self.right_panel, stretch=3)
 
     def _on_model_change(self, model_name):
         stems = ["VOCALS", "DRUMS", "BASS", "PIANO", "GUITAR", "OTHER"] if "6s" in model_name else ["VOCALS", "DRUMS", "BASS", "OTHER"]
         self.center_panel.render_mixer_sliders(stems)
 
-    def _on_song_select(self, song_meta, mode="single_play"):
+    def _on_song_select(self, song_meta, mode):
         song_path = song_meta["path"]
         title = song_meta["title"]
         artist = song_meta["artist"]
+
         cover_image = song_meta.get("cover_image")
+        if cover_image is None:
+            cover_image = get_cover_image(song_path)
+            song_meta["cover_image"] = cover_image
 
         if mode == "single_preview":
             self.center_panel.load_track_info(title, artist, mode="Preview", cover_image=cover_image)
@@ -86,7 +111,6 @@ class MonoSyncApp(ctk.CTk):
             self.audio_engine.load_single(song_path)
             self.center_panel.load_track_info(title, artist, mode="Original", cover_image=cover_image)
             self.audio_engine.play()
-            self.center_panel.btn_play_pause.configure(text="⏸ PAUSE", fg_color="#FF9F0A")
 
     def _play_stems_song(self, folder_path, song_name, stems_list):
         self.audio_engine.load_stems(folder_path, stems_list)
@@ -95,7 +119,6 @@ class MonoSyncApp(ctk.CTk):
         for file in os.listdir(folder_path):
             if file.lower().endswith((".jpg", ".png", ".jpeg")):
                 try:
-                    from PIL import Image
                     meta["cover_image"] = Image.open(os.path.join(folder_path, file))
                     break
                 except Exception:
@@ -109,22 +132,24 @@ class MonoSyncApp(ctk.CTk):
             stems=stems_list
         )
         self.audio_engine.play()
-        self.center_panel.btn_play_pause.configure(text="⏸ PAUSE", fg_color="#FF9F0A")
 
     def _on_sep_start(self, song_name, current, total):
-        self.after(0, lambda: self.left_panel.update_queue_status())
+        QTimer.singleShot(0, self.left_panel.update_queue_status)
 
     def _on_sep_finish(self, song_name, output_folder):
-        self.after(0, lambda: self.left_panel.update_queue_status())
-        self.after(0, lambda: self.right_panel.refresh_divided_songs())
+        QTimer.singleShot(0, self.left_panel.update_queue_status)
+        QTimer.singleShot(0, self.right_panel.refresh_divided_songs)
 
     def _on_sep_queue_finish(self):
-        self.after(0, lambda: self.left_panel.update_queue_status())
-        self.after(0, lambda: self.right_panel.refresh_divided_songs())
+        QTimer.singleShot(0, self.left_panel.update_queue_status)
+        QTimer.singleShot(0, self.right_panel.refresh_divided_songs)
 
     def _on_sep_error(self, song_name, err):
-        self.after(0, lambda: self.left_panel.update_queue_status())
+        QTimer.singleShot(0, self.left_panel.update_queue_status)
 
 if __name__ == "__main__":
-    app = MonoSyncApp()
-    app.mainloop()
+    app = QApplication(sys.argv)
+    app.setStyleSheet(QSS_MACOS_DARK)
+    window = MonoSyncApp()
+    window.show()
+    sys.exit(app.exec())
