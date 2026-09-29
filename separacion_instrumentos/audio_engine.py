@@ -6,14 +6,13 @@ import pygame
 
 class AudioEngine:
     def __init__(self):
-        # Initialize Pygame Mixer with standard 44100Hz, 16bit stereo
+        # Initialize Pygame Mixer with 44100Hz 16-bit stereo and clean buffer size
         if not pygame.mixer.get_init():
-            pygame.mixer.init(frequency=44100, size=-16, channels=2, buffer=1024)
+            pygame.mixer.init(frequency=44100, size=-16, channels=2, buffer=2048)
         
-        # Increase available channels (default is 8, 16 is safe for multi-stem)
         pygame.mixer.set_num_channels(16)
 
-        self.mode = None  # "single" or "stems"
+        self.mode = None # "single" or "stems"
         self.is_playing = False
         self.is_paused = False
 
@@ -22,15 +21,15 @@ class AudioEngine:
         self.single_duration = 0.0
 
         # Stems song properties
-        self.stem_paths = {}  # e.g. {"VOCALS": path, "DRUMS": path, ...}
-        self.stem_volumes = {} # e.g. {"VOCALS": 1.0, ...}
-        self.stem_mutes = {}   # e.g. {"VOCALS": False, ...}
-        self.stem_solos = {}   # e.g. {"VOCALS": False, ...}
+        self.stem_paths = {}
+        self.stem_volumes = {}
+        self.stem_mutes = {}
+        self.stem_solos = {}
         self.stem_sounds = {}
         self.stem_channels = {}
         self.stems_duration = 0.0
 
-        # Playback timing variables
+        # Timing variables
         self.start_wall_time = 0.0
         self.seek_offset = 0.0
         self.duration = 0.0
@@ -44,7 +43,6 @@ class AudioEngine:
         self.single_path = file_path
         self.seek_offset = 0.0
 
-        # Estimate duration
         try:
             if file_path.lower().endswith(".wav"):
                 with wave.open(file_path, "rb") as wf:
@@ -54,7 +52,7 @@ class AudioEngine:
                 self.duration = snd.get_length()
         except Exception as e:
             print(f"Error calculando duracion: {e}")
-            self.duration = 180.0  # Fallback duration if unknown
+            self.duration = 180.0
 
         pygame.mixer.music.load(file_path)
 
@@ -67,14 +65,13 @@ class AudioEngine:
         self.stem_solos = {}
         self.seek_offset = 0.0
 
-        # Look for stem files inside folder_path
         self.stems_duration = 0.0
         for name in stem_names:
             filename = f"{name.lower()}.wav"
             file_path = os.path.join(folder_path, filename)
             if os.path.exists(file_path):
                 self.stem_paths[name] = file_path
-                self.stem_volumes[name] = 0.8
+                self.stem_volumes[name] = 1.0 # 100% full volume by default
                 self.stem_mutes[name] = False
                 self.stem_solos[name] = False
 
@@ -83,7 +80,7 @@ class AudioEngine:
                         with wave.open(file_path, "rb") as wf:
                             self.stems_duration = wf.getnframes() / float(wf.getframerate())
                     except Exception as e:
-                        print(f"Error en wave header de stem: {e}")
+                        print(f"Error leyendo wave header: {e}")
 
         self.duration = self.stems_duration if self.stems_duration > 0 else 180.0
 
@@ -105,7 +102,6 @@ class AudioEngine:
             self.is_paused = False
 
     def _start_stems_playback(self, start_sec):
-        # Stop existing stem channels
         for ch in self.stem_channels.values():
             ch.stop()
 
@@ -117,7 +113,6 @@ class AudioEngine:
         channel_idx = 0
         for name, path in self.stem_paths.items():
             try:
-                # Use in-memory wave segment for accurate seeking
                 with wave.open(path, "rb") as wf:
                     nchannels = wf.getnchannels()
                     sampwidth = wf.getsampwidth()
@@ -145,8 +140,7 @@ class AudioEngine:
             ch = pygame.mixer.Channel(channel_idx)
             ch.play(sound)
 
-            # Volume calculation considering mute & solo
-            vol = self.stem_volumes.get(name, 0.8)
+            vol = self.stem_volumes.get(name, 1.0)
             if self.stem_mutes.get(name, False):
                 vol = 0.0
             elif has_any_solo and not self.stem_solos.get(name, False):
@@ -215,7 +209,7 @@ class AudioEngine:
         if self.mode == "stems":
             has_any_solo = any(self.stem_solos.values())
             for name, ch in self.stem_channels.items():
-                vol = self.stem_volumes.get(name, 0.8)
+                vol = self.stem_volumes.get(name, 1.0)
                 if self.stem_mutes.get(name, False):
                     vol = 0.0
                 elif has_any_solo and not self.stem_solos.get(name, False):

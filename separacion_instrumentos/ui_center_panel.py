@@ -7,13 +7,23 @@ try:
 except ImportError:
     HAS_PIL = False
 
+STEM_LAYOUT_6S = [
+    ("VOCALS", 0, 0), ("DRUMS", 0, 1), ("BASS", 0, 2),
+    ("PIANO", 1, 0),  ("GUITAR", 1, 1), ("OTHER", 1, 2)
+]
+
+STEM_LAYOUT_4S = [
+    ("VOCALS", 0, 0), ("DRUMS", 0, 1), ("BASS", 0, 2),
+    ("OTHER", 1, 1)  # Centered in row 1
+]
+
 class CenterPanel(ctk.CTkFrame):
     def __init__(self, parent, config_manager, audio_engine):
         super().__init__(parent, fg_color="transparent")
         self.config = config_manager
         self.audio_engine = audio_engine
 
-        self.current_stems = ["VOCALS", "DRUMS", "BASS", "OTHER"]
+        self.current_stems = ["VOCALS", "DRUMS", "BASS", "PIANO", "GUITAR", "OTHER"]
         self.slider_widgets = {}
         self.mute_buttons = {}
         self.solo_buttons = {}
@@ -30,14 +40,14 @@ class CenterPanel(ctk.CTkFrame):
         self.block_cover.pack(side="top", fill="both", expand=True, pady=(0, 10))
 
         self.cover_container = ctk.CTkFrame(self.block_cover, fg_color="#121214", corner_radius=12)
-        self.cover_container.pack(fill="both", expand=True, padx=15, pady=12)
+        self.cover_container.pack(fill="both", expand=True, padx=15, pady=10)
 
         self.lbl_cover_art = ctk.CTkLabel(
             self.cover_container,
             text="💿",
-            font=("SF Pro Display", 56)
+            font=("SF Pro Display", 48)
         )
-        self.lbl_cover_art.pack(expand=True, pady=(10, 5))
+        self.lbl_cover_art.pack(expand=True, pady=(8, 2))
 
         self.lbl_cover_artist = ctk.CTkLabel(
             self.cover_container,
@@ -50,26 +60,26 @@ class CenterPanel(ctk.CTkFrame):
         self.lbl_cover_title = ctk.CTkLabel(
             self.cover_container,
             text="Selecciona una canción",
-            font=("SF Pro Display", 14, "bold"),
+            font=("SF Pro Display", 13, "bold"),
             text_color="#F2F2F7"
         )
-        self.lbl_cover_title.pack(pady=(0, 10))
+        self.lbl_cover_title.pack(pady=(0, 8))
 
     def update_cover_image(self, pil_image):
-        """Updates the cover art widget with a PIL Image object or fallback icon."""
         if HAS_PIL and pil_image:
             try:
-                pil_resized = pil_image.resize((180, 180), Image.Resampling.LANCZOS)
-                ctk_img = ctk.CTkImage(light_image=pil_resized, dark_image=pil_resized, size=(180, 180))
+                pil_resized = pil_image.resize((150, 150), Image.Resampling.LANCZOS)
+                ctk_img = ctk.CTkImage(light_image=pil_resized, dark_image=pil_resized, size=(150, 150))
                 self.lbl_cover_art.configure(image=ctk_img, text="")
                 return
             except Exception as e:
                 print(f"Error renderizando cover image: {e}")
         
-        self.lbl_cover_art.configure(image=None, text="💿", font=("SF Pro Display", 56))
+        self.lbl_cover_art.configure(image=None, text="💿", font=("SF Pro Display", 48))
 
     def _create_mixer_block(self):
-        self.block_mixer = ctk.CTkFrame(self, fg_color="#1C1C1E", corner_radius=14, border_width=1, border_color="#2C2C2E", height=210)
+        # Card Block: Individual Stem Mixer (2 rows layout)
+        self.block_mixer = ctk.CTkFrame(self, fg_color="#1C1C1E", corner_radius=14, border_width=1, border_color="#2C2C2E", height=320)
         self.block_mixer.pack(side="top", fill="x", pady=(0, 10))
         self.block_mixer.pack_propagate(False)
 
@@ -79,10 +89,10 @@ class CenterPanel(ctk.CTkFrame):
             font=("SF Pro Display", 13, "bold"),
             text_color="#F2F2F7"
         )
-        header.pack(anchor="w", padx=15, pady=(8, 0))
+        header.pack(anchor="w", padx=15, pady=(8, 2))
 
         self.mixer_inner = ctk.CTkFrame(self.block_mixer, fg_color="transparent")
-        self.mixer_inner.pack(fill="both", expand=True, padx=12, pady=(4, 8))
+        self.mixer_inner.pack(fill="both", expand=True, padx=10, pady=(2, 8))
 
         self.render_mixer_sliders(self.current_stems)
 
@@ -95,15 +105,29 @@ class CenterPanel(ctk.CTkFrame):
         self.mute_buttons = {}
         self.solo_buttons = {}
 
-        for stem in stem_names:
-            col = ctk.CTkFrame(self.mixer_inner, fg_color="#121214", corner_radius=8)
-            col.pack(side="left", expand=True, fill="both", padx=3)
+        # Configure 3x2 Grid inside mixer_inner
+        for col in range(3):
+            self.mixer_inner.grid_columnconfigure(col, weight=1)
+        for row in range(2):
+            self.mixer_inner.grid_rowconfigure(row, weight=1)
 
-            ms_frame = ctk.CTkFrame(col, fg_color="transparent")
-            ms_frame.pack(fill="x", padx=2, pady=(4, 2))
+        # Determine layout mapping
+        is_6s = len(stem_names) >= 5 or any(s in stem_names for s in ["PIANO", "GUITAR"])
+        layout = STEM_LAYOUT_6S if is_6s else STEM_LAYOUT_4S
+
+        for stem, row, col in layout:
+            if stem not in stem_names and not is_6s and stem != "OTHER":
+                continue
+
+            cell = ctk.CTkFrame(self.mixer_inner, fg_color="#121214", corner_radius=8)
+            cell.grid(row=row, column=col, sticky="nsew", padx=4, pady=3)
+
+            # Header Mute & Solo
+            ms_frame = ctk.CTkFrame(cell, fg_color="transparent")
+            ms_frame.pack(fill="x", padx=2, pady=(3, 1))
 
             btn_m = ctk.CTkButton(
-                ms_frame, text="M", width=20, height=18,
+                ms_frame, text="M", width=18, height=16,
                 font=("SF Pro Text", 8, "bold"),
                 fg_color="#2C2C2E", hover_color="#FF453A",
                 corner_radius=4,
@@ -113,7 +137,7 @@ class CenterPanel(ctk.CTkFrame):
             self.mute_buttons[stem] = btn_m
 
             btn_s = ctk.CTkButton(
-                ms_frame, text="S", width=20, height=18,
+                ms_frame, text="S", width=18, height=16,
                 font=("SF Pro Text", 8, "bold"),
                 fg_color="#2C2C2E", hover_color="#FF9F0A",
                 corner_radius=4,
@@ -122,27 +146,30 @@ class CenterPanel(ctk.CTkFrame):
             btn_s.pack(side="right", padx=1)
             self.solo_buttons[stem] = btn_s
 
+            # Vertical Volume Slider
             slider = ctk.CTkSlider(
-                col,
+                cell,
                 orientation="vertical",
                 from_=1.0,
                 to=0.0,
+                height=75,
                 button_color="#0A84FF",
                 button_hover_color="#0066CC",
                 progress_color="#0A84FF",
                 command=lambda v, s=stem: self.audio_engine.set_stem_volume(s, v)
             )
-            slider.set(0.8)
-            slider.pack(expand=True, pady=4)
+            slider.set(1.0) # Full 100% volume by default
+            slider.pack(expand=True, pady=2)
             self.slider_widgets[stem] = slider
 
+            # Stem Instrument Label
             lbl = ctk.CTkLabel(
-                col,
+                cell,
                 text=stem,
                 font=("SF Pro Text", 9, "bold"),
-                text_color="#8E8E93"
+                text_color="#FFFFFF"
             )
-            lbl.pack(pady=(0, 4))
+            lbl.pack(pady=(0, 3))
 
     def _toggle_mute(self, stem):
         curr = self.audio_engine.stem_mutes.get(stem, False)
@@ -165,7 +192,7 @@ class CenterPanel(ctk.CTkFrame):
         self.block_player.pack(side="bottom", fill="x", pady=(0, 0))
 
         info_frame = ctk.CTkFrame(self.block_player, fg_color="transparent")
-        info_frame.pack(fill="x", padx=15, pady=(10, 0))
+        info_frame.pack(fill="x", padx=15, pady=(8, 0))
 
         self.lbl_now_playing = ctk.CTkLabel(
             info_frame,
@@ -193,17 +220,17 @@ class CenterPanel(ctk.CTkFrame):
             command=self._on_seek_drag
         )
         self.seek_slider.set(0)
-        self.seek_slider.pack(fill="x", padx=15, pady=6)
+        self.seek_slider.pack(fill="x", padx=15, pady=4)
         self.seek_slider.bind("<ButtonRelease-1>", self._on_seek_release)
 
         ctrl_frame = ctk.CTkFrame(self.block_player, fg_color="transparent")
-        ctrl_frame.pack(fill="x", padx=15, pady=(0, 10))
+        ctrl_frame.pack(fill="x", padx=15, pady=(0, 8))
 
         self.btn_play_pause = ctk.CTkButton(
             ctrl_frame,
             text="▶  PLAY",
             width=90,
-            height=32,
+            height=30,
             font=("SF Pro Text", 11, "bold"),
             fg_color="#30D158",
             hover_color="#248A3D",
@@ -216,7 +243,7 @@ class CenterPanel(ctk.CTkFrame):
             ctrl_frame,
             text="⏹ STOP",
             width=75,
-            height=32,
+            height=30,
             font=("SF Pro Text", 11, "bold"),
             fg_color="#FF453A",
             hover_color="#D70015",

@@ -17,8 +17,8 @@ class MonoSyncApp(ctk.CTk):
         super().__init__()
 
         self.title("MonoSync Studio - Stem Player & AI Separator")
-        self.geometry("1180x800")
-        self.minsize(1000, 680)
+        self.geometry("1180x820")
+        self.minsize(1000, 700)
         self.configure(fg_color="#0D0D0E")
 
         # Initialize Core Engines
@@ -38,23 +38,23 @@ class MonoSyncApp(ctk.CTk):
         self.center_panel.update_player_loop()
 
     def _build_layout(self):
-        # 3-Column Layout Configuration
         self.grid_columnconfigure(0, weight=3) # Left Panel: 30%
         self.grid_columnconfigure(1, weight=4) # Center Panel: 40%
         self.grid_columnconfigure(2, weight=3) # Right Panel: 30%
         self.grid_rowconfigure(0, weight=1)
 
-        # Left Panel (Undivided songs accordion + Conversion settings)
+        # Left Panel
         self.left_panel = LeftPanel(
             self,
             self.config_manager,
             self.audio_engine,
             self.separator,
-            on_song_select_callback=self._on_song_select
+            on_song_select_callback=self._on_song_select,
+            on_model_change_callback=self._on_model_change
         )
         self.left_panel.grid(row=0, column=0, sticky="nsew", padx=(15, 8), pady=15)
 
-        # Center Panel (Cover + Stem Mixer + Mini Player with Seek)
+        # Center Panel
         self.center_panel = CenterPanel(
             self,
             self.config_manager,
@@ -62,13 +62,17 @@ class MonoSyncApp(ctk.CTk):
         )
         self.center_panel.grid(row=0, column=1, sticky="nsew", padx=8, pady=15)
 
-        # Right Panel (Divided songs monosync folder tree)
+        # Right Panel
         self.right_panel = RightPanel(
             self,
             self.config_manager,
             on_play_stems_callback=self._play_stems_song
         )
         self.right_panel.grid(row=0, column=2, sticky="nsew", padx=(8, 15), pady=15)
+
+    def _on_model_change(self, model_name):
+        stems = ["VOCALS", "DRUMS", "BASS", "PIANO", "GUITAR", "OTHER"] if "6s" in model_name else ["VOCALS", "DRUMS", "BASS", "OTHER"]
+        self.center_panel.render_mixer_sliders(stems)
 
     def _on_song_select(self, song_meta, mode="single_play"):
         song_path = song_meta["path"]
@@ -77,10 +81,8 @@ class MonoSyncApp(ctk.CTk):
         cover_image = song_meta.get("cover_image")
 
         if mode == "single_preview":
-            # Update Cover and track info on selection
             self.center_panel.load_track_info(title, artist, mode="Preview", cover_image=cover_image)
         elif mode == "single_play":
-            # Load track into audio engine and play
             self.audio_engine.load_single(song_path)
             self.center_panel.load_track_info(title, artist, mode="Original", cover_image=cover_image)
             self.audio_engine.play()
@@ -89,7 +91,6 @@ class MonoSyncApp(ctk.CTk):
     def _play_stems_song(self, folder_path, song_name, stems_list):
         self.audio_engine.load_stems(folder_path, stems_list)
 
-        # Try extracting cover image from separated folder or metadata
         meta = {"artist": "MonoSync Stems", "title": song_name, "cover_image": None}
         for file in os.listdir(folder_path):
             if file.lower().endswith((".jpg", ".png", ".jpeg")):
@@ -110,7 +111,6 @@ class MonoSyncApp(ctk.CTk):
         self.audio_engine.play()
         self.center_panel.btn_play_pause.configure(text="⏸ PAUSE", fg_color="#FF9F0A")
 
-    # Separator Event Callbacks
     def _on_sep_start(self, song_name, current, total):
         self.after(0, lambda: self.left_panel.update_queue_status())
 
