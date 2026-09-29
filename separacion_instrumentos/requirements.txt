@@ -1,0 +1,6 @@
+customtkinter
+pygame
+torch
+demucs
+pillow
+mutagen

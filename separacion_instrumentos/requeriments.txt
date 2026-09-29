@@ -1,11 +1,11 @@
 demucs
 numpy<2.0
 ffmpeg-python
+pillow
+mutagen
 soundfile
 customtkinter
 pygame
-
-
 
 ##pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
 ##torch

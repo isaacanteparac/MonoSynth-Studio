@@ -1,0 +1,6 @@
+{
+    "ffmpeg_path": "D:\\GitHub\\MonoSynth-Studio\\separacion_instrumentos",
+    "device": "cuda",
+    "model": "htdemucs_6s",
+    "output_dir": "D:\\GitHub\\MonoSynth-Studio\\separacion_instrumentos\\monosync"
+}
